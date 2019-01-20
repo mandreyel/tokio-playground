@@ -11,7 +11,7 @@ use tokio::codec::Decoder;
 
 use futures::sync::mpsc;
 
-use core::{Request, ClientToServerCodec};
+use core::{Request, Response, ClientToServerCodec};
 
 fn main() {
     let mut args = std::env::args();
@@ -21,62 +21,16 @@ fn main() {
         _ => return println!("Usage: {} <host> <port>", program),
     };
 
-    CombinedLogger::init(
-        vec![
-            WriteLogger::new(
-                LevelFilter::Info,
-                Config::default(),
-                File::create(format!("/tmp/maidsafe-test-client.log")).unwrap(),
-            ),
-            //TermLogger::new(
-                //LevelFilter::Info,
-                //Config::default(),
-            //).unwrap(),
-        ]
-    ).unwrap();
+    WriteLogger::new(
+        LevelFilter::Info,
+        Config::default(),
+        File::create(format!("/tmp/maidsafe-test-client.log")).unwrap(),
+    );
 
     let (stdin_chan, stdin_port) = mpsc::unbounded();
     let (stdout_chan, stdout_port) = std::sync::mpsc::channel();
 
-    thread::spawn(move || {
-        let mut stdin_chan = stdin_chan;
-        info!("Starting stdio thread");
-        loop {
-            // TODO: don't reallocate string every time.
-            let mut buf = String::new();
-            // TODO: stdin error handling?
-            print!("> ");
-            io::stdout().flush().unwrap();
-            io::stdin().read_line(&mut buf).unwrap();
-            let num_addrs = match buf.trim().parse() {
-                Ok(n) => n,
-                Err(_) => {
-                    println!("Input must be an integer");
-                    continue;
-                },
-            };
-            let msg = Request { num_addrs };
-            stdin_chan = match stdin_chan.send(msg).wait() {
-                Ok(tx) => tx,
-                Err(e) => {
-                    error!("Stdin error: {}", e);
-                    break;
-                }
-            };
-            match stdout_port.recv() {
-                Ok(addrs) => {
-                    for addr in addrs {
-                        println!("{}", addr);
-                    }
-                },
-                Err(_) => (), // TODO
-            }
-            if num_addrs == 0 {
-                info!("Exiting program");
-                break;
-            }
-        }
-    });
+    thread::spawn(move || ui_thread(stdin_chan, stdout_port));
 
     let addr = format!("{}:{}", host, port).parse().unwrap();
     let connect = TcpStream::connect(&addr);
@@ -87,21 +41,20 @@ fn main() {
 
         let write = stdin_port
             .map_err(|()| unreachable!("stdin_port can't fail"))
-            .fold(writer, |writer, msg| {
-                info!("Sending msg: {:?}", msg);
-                if msg.num_addrs == 0 {
+            .fold(writer, |writer, req| {
+                info!("Sending request: {:?}", req);
+                if req.num_addrs == 0 {
                     // TODO: gracefully shutdown Tokio runtime.
                     std::process::exit(0);
                 } else {
-                    writer.send(msg)
+                    writer.send(req)
                 }
             })
             .map(|_| ());
 
-        let read = reader.for_each(move |msg| {
-            info!("Got msg: {:?}", msg);
-            stdout_chan.send(msg.addrs);
-            //println!("Addresses: {:?}", msg.addrs);
+        let read = reader.for_each(move |resp| {
+            info!("Got response: {:?}", resp);
+            stdout_chan.send(resp).unwrap();
             Ok(())
         });
 
@@ -109,5 +62,45 @@ fn main() {
     });
 
     tokio::run(session.map_err(|_e| ()));
+}
+
+fn ui_thread(
+    mut stdin_chan: mpsc::UnboundedSender<Request>,
+    stdout_port: std::sync::mpsc::Receiver<Response>,
+) {
+    info!("Starting stdio thread");
+    loop {
+        let mut buf = String::new();
+        print!("> ");
+        io::stdout().flush().unwrap();
+        io::stdin().read_line(&mut buf).unwrap();
+        let num_addrs = match buf.trim().parse() {
+            Ok(n) => n,
+            Err(_) => {
+                println!("Input must be an integer");
+                continue;
+            },
+        };
+        let req = Request { num_addrs };
+        stdin_chan = match stdin_chan.send(req).wait() {
+            Ok(tx) => tx,
+            Err(e) => {
+                error!("Stdin error: {}", e);
+                break;
+            }
+        };
+        match stdout_port.recv() {
+            Ok(resp) => {
+                for addr in resp.addrs {
+                    println!("{}", addr);
+                }
+            },
+            Err(_) => (), // TODO
+        }
+        if num_addrs == 0 {
+            info!("Exiting program");
+            break;
+        }
+    }
 }
 
