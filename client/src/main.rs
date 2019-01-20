@@ -5,6 +5,7 @@ use std::fs::File;
 use log::*;
 use simplelog::*;
 
+use tokio::io::shutdown;
 use tokio::prelude::*;
 use tokio::net::TcpStream;
 use tokio::codec::Decoder;
@@ -47,7 +48,6 @@ fn main() {
             print!("> ");
             io::stdout().flush().unwrap();
             io::stdin().read_line(&mut buf).unwrap();
-            // TODO: 0 exit!
             let num_addrs = buf.trim().parse().expect("TODO fix this");
             let msg = Request { num_addrs };
             stdin_chan = match stdin_chan.send(msg).wait() {
@@ -56,6 +56,10 @@ fn main() {
                     error!("Stdin error: {}", e);
                     break;
                 }
+            };
+            if num_addrs == 0 {
+                info!("Exiting program");
+                break;
             }
         }
     });
@@ -71,7 +75,12 @@ fn main() {
             .map_err(|()| unreachable!("stdin_port can't fail"))
             .fold(writer, |writer, msg| {
                 info!("Sending msg: {:?}", msg);
-                writer.send(msg)
+                if msg.num_addrs == 0 {
+                    // TODO: gracefully shutdown Tokio runtime.
+                    std::process::exit(0);
+                } else {
+                    writer.send(msg)
+                }
             })
             .map(|_| ());
 
