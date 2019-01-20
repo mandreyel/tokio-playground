@@ -64,7 +64,11 @@ fn main() {
                 }
             };
             match stdout_port.recv() {
-                Ok(addrs) => println!("{:?}", addrs),
+                Ok(addrs) => {
+                    for addr in addrs {
+                        println!("{}", addr);
+                    }
+                },
                 Err(_) => (), // TODO
             }
             if num_addrs == 0 {
