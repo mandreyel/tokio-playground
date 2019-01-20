@@ -5,7 +5,6 @@ use std::fs::File;
 use log::*;
 use simplelog::*;
 
-use tokio::io::shutdown;
 use tokio::prelude::*;
 use tokio::net::TcpStream;
 use tokio::codec::Decoder;
@@ -37,6 +36,7 @@ fn main() {
     ).unwrap();
 
     let (stdin_chan, stdin_port) = mpsc::unbounded();
+    let (stdout_chan, stdout_port) = std::sync::mpsc::channel();
 
     thread::spawn(move || {
         let mut stdin_chan = stdin_chan;
@@ -63,6 +63,10 @@ fn main() {
                     break;
                 }
             };
+            match stdout_port.recv() {
+                Ok(addrs) => println!("{:?}", addrs),
+                Err(_) => (), // TODO
+            }
             if num_addrs == 0 {
                 info!("Exiting program");
                 break;
@@ -92,7 +96,8 @@ fn main() {
 
         let read = reader.for_each(move |msg| {
             info!("Got msg: {:?}", msg);
-            println!("Addresses: {:?}", msg.addrs);
+            stdout_chan.send(msg.addrs);
+            //println!("Addresses: {:?}", msg.addrs);
             Ok(())
         });
 
