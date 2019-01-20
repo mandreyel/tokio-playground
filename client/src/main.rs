@@ -11,7 +11,7 @@ use tokio::codec::Decoder;
 
 use futures::sync::mpsc;
 
-use core::{AddrRequest, ClientToServerCodec};
+use core::{Request, ClientToServerCodec};
 
 fn main() {
     let mut args = std::env::args();
@@ -21,11 +21,19 @@ fn main() {
         _ => return println!("Usage: {} <host> <port>", program),
     };
 
-    WriteLogger::new(
-        LevelFilter::Info,
-        Config::default(),
-        File::create(format!("/tmp/maidsafe-test-client.log")).unwrap(),
-    );
+    CombinedLogger::init(
+        vec![
+            WriteLogger::new(
+                LevelFilter::Info,
+                Config::default(),
+                File::create(format!("/tmp/maidsafe-test-client.log")).unwrap(),
+            ),
+            //TermLogger::new(
+                //LevelFilter::Info,
+                //Config::default(),
+            //).unwrap(),
+        ]
+    ).unwrap();
 
     let (stdin_chan, stdin_port) = mpsc::unbounded();
 
@@ -40,7 +48,7 @@ fn main() {
             io::stdin().read_line(&mut buf).unwrap();
             // TODO: 0 exit!
             let num_addrs = buf.trim().parse().expect("TODO fix this");
-            let msg = AddrRequest { num_addrs };
+            let msg = Request { num_addrs };
             stdin_chan = match stdin_chan.send(msg).wait() {
                 Ok(tx) => tx,
                 Err(e) => {
@@ -68,7 +76,7 @@ fn main() {
 
         let read = reader.for_each(move |msg| {
             info!("Got msg: {:?}", msg);
-            println!("Addresses: {:#?}", msg.addrs);
+            println!("Addresses: {:?}", msg.addrs);
             Ok(())
         });
 

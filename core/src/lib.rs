@@ -8,13 +8,13 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 /// Client request containign the number of random IPv4 addresses it wishes to
 /// receive from server.
 #[derive(Copy, Clone, Debug)]
-pub struct AddrRequest {
+pub struct Request {
     pub num_addrs: u32,
 }
 
 /// Server response containing random IPv4 addresses.
 #[derive(Clone, Debug)]
-pub struct AddrResponse {
+pub struct Response {
     pub addrs: Vec<SocketAddr>,
 }
 
@@ -26,10 +26,10 @@ pub struct ClientToServerCodec;
 ///
 /// Where n is a 32-bit integer denoting the number of random ipv4 addresses
 impl Encoder for ClientToServerCodec {
-    type Item = AddrRequest;
+    type Item = Request;
     type Error = io::Error;
 
-    fn encode(&mut self, item: AddrRequest, buf: &mut BytesMut) -> io::Result<()> {
+    fn encode(&mut self, item: Request, buf: &mut BytesMut) -> io::Result<()> {
         info!("Encoding {:?}", item);
         buf.put_u32_be(item.num_addrs);
         Ok(())
@@ -43,10 +43,10 @@ impl Encoder for ClientToServerCodec {
 /// Where n is a 32-bit integer denoting the number of 32-bit IPv4 addresses
 /// contained in the response.
 impl Decoder for ClientToServerCodec {
-    type Item = AddrResponse;
+    type Item = Response;
     type Error = io::Error;
 
-    fn decode(&mut self, buf: &mut BytesMut) -> io::Result<Option<AddrResponse>> {
+    fn decode(&mut self, buf: &mut BytesMut) -> io::Result<Option<Response>> {
         if buf.len() < 4 {
             // Need at least four bytes for the length field.
             return Ok(None);
@@ -101,7 +101,7 @@ impl Decoder for ClientToServerCodec {
             addrs.push(SocketAddr::new(ip, port));
         }
         buf.split_to(msg_len);
-        Ok(Some(AddrResponse { addrs }))
+        Ok(Some(Response { addrs }))
     }
 }
 
@@ -114,10 +114,10 @@ pub struct ServerToClientCodec;
 /// Where n is a 32-bit integer denoting the number of 32-bit IPv4 addresses
 /// contained in the response.
 impl Encoder for ServerToClientCodec {
-    type Item = AddrResponse;
+    type Item = Response;
     type Error = io::Error;
 
-    fn encode(&mut self, item: AddrResponse, buf: &mut BytesMut) -> io::Result<()> {
+    fn encode(&mut self, item: Response, buf: &mut BytesMut) -> io::Result<()> {
         info!("Encoding {:?}", item);
         // TODO: test that item.len() <= 32?
         buf.put_u32_be(item.addrs.len() as u32 * 6);
@@ -143,10 +143,10 @@ impl Encoder for ServerToClientCodec {
 ///
 /// Where n is a 32-bit integer denoting the number of random ipv4 addresses
 impl Decoder for ServerToClientCodec {
-    type Item = AddrRequest;
+    type Item = Request;
     type Error = io::Error;
 
-    fn decode(&mut self, buf: &mut BytesMut) -> io::Result<Option<AddrRequest>> {
+    fn decode(&mut self, buf: &mut BytesMut) -> io::Result<Option<Request>> {
         if buf.len() < 4 {
             // Not enough bytes yet.
             return Ok(None);
@@ -162,7 +162,7 @@ impl Decoder for ServerToClientCodec {
             n
         };
         buf.split_to(4);
-        Ok(Some(AddrRequest { num_addrs }))
+        Ok(Some(Request { num_addrs }))
     }
 }
 

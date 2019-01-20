@@ -17,7 +17,7 @@ use futures::stream;
 use futures::sync::mpsc;
 use futures::sync::mpsc::UnboundedSender;
 
-use core::{AddrResponse, ServerToClientCodec};
+use core::{Response, ServerToClientCodec};
 
 fn gen_sock_addr() -> SocketAddr {
     let ip = IpAddr::V4(Ipv4Addr::new(
@@ -68,7 +68,7 @@ fn main() {
                         addrs.push(gen_sock_addr());
                     }
                     info!("Generated addrs: {:?}", addrs);
-                    AddrResponse { addrs }
+                    Response { addrs }
                 })
                 .forward(writer)
                 .map_err(|e| error!("Client error: {}", e))
