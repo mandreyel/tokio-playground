@@ -7,13 +7,13 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 /// receive from server.
 #[derive(Copy, Clone, Debug)]
 pub struct AddrRequest {
-    num_addrs: u32,
+    pub num_addrs: u32,
 }
 
 /// Server response containing random IPv4 addresses.
 #[derive(Clone, Debug)]
 pub struct AddrResponse {
-    addrs: Vec<SocketAddr>,
+    pub addrs: Vec<SocketAddr>,
 }
 
 pub struct ClientToServerCodec;
