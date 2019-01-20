@@ -5,11 +5,13 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 /// Client request containign the number of random IPv4 addresses it wishes to
 /// receive from server.
+#[derive(Copy, Clone, Debug)]
 pub struct AddrRequest {
     num_addrs: u32,
 }
 
 /// Server response containing random IPv4 addresses.
+#[derive(Clone, Debug)]
 pub struct AddrResponse {
     addrs: Vec<SocketAddr>,
 }
@@ -65,7 +67,7 @@ impl Decoder for ClientToServerCodec {
         // Offset into the buffer.
         let mut offset = 4;
         let mut addrs = Vec::with_capacity(num_addrs);
-        for i in 0..num_addrs {
+        for _ in 0..num_addrs {
             let ip = IpAddr::V4(Ipv4Addr::new(
                     buf[offset],
                     buf[offset + 1],
