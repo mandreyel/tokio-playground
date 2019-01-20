@@ -1,9 +1,12 @@
-use bytes::{BufMut, BytesMut};
-use log::*;
-use simplelog::*;
-use tokio::codec::{Decoder, Encoder};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+use bytes::{BufMut, BytesMut};
+
+use log::*;
+use simplelog::*;
+
+use tokio::codec::{Decoder, Encoder};
 
 /// Client request containign the number of random IPv4 addresses it wishes to
 /// receive from server.

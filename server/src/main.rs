@@ -1,7 +1,4 @@
-use std::io;
 use std::fs::File;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 use log::*;
@@ -12,10 +9,6 @@ use rand::prelude::*;
 use tokio::prelude::*;
 use tokio::net::TcpListener;
 use tokio::codec::Decoder;
-
-use futures::stream;
-use futures::sync::mpsc;
-use futures::sync::mpsc::UnboundedSender;
 
 use core::{Response, ServerToClientCodec};
 
