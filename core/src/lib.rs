@@ -61,7 +61,8 @@ impl Decoder for ClientToServerCodec {
         // Check if we have all addresses in the response which has a 4 byte
         // length field and `num_addr` times 6 bytes (an address containsa
         // 4 byte IP and a 2 byte port).
-        if buf.len() < 4 + (num_addrs * 6) {
+        let msg_len = 4 + (num_addrs * 6);
+        if buf.len() < msg_len {
             return Ok(None)
         }
         // Offset into the buffer.
@@ -87,6 +88,7 @@ impl Decoder for ClientToServerCodec {
             offset += 2;
             addrs.push(SocketAddr::new(ip, port));
         }
+        buf.split_to(msg_len);
         Ok(Some(AddrResponse { addrs }))
     }
 }
@@ -145,7 +147,7 @@ impl Decoder for ServerToClientCodec {
             }
             n
         };
-        // TODO parse addresses
+        buf.split_to(4);
         Ok(Some(AddrRequest { num_addrs }))
     }
 }
