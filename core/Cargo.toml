@@ -1,0 +1,13 @@
+[package]
+name = "core"
+version = "0.1.0"
+authors = ["mandreyel <mandreyel@protonmail.com>"]
+edition = "2018"
+
+[dependencies]
+tokio = "0.1"
+tokio-io = "0.1"
+futures = "0.1.2"
+log = "0.4"
+simplelog = "^0.5.0"
+bytes = "0.4"
