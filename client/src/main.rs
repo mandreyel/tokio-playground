@@ -44,7 +44,8 @@ fn main() {
             // TODO: don't reallocate string every time.
             let mut buf = String::new();
             // TODO: stdin error handling?
-            println!("> ");
+            print!("> ");
+            io::stdout().flush().unwrap();
             io::stdin().read_line(&mut buf).unwrap();
             // TODO: 0 exit!
             let num_addrs = buf.trim().parse().expect("TODO fix this");
