@@ -1,4 +1,6 @@
 use bytes::{BufMut, BytesMut};
+use log::*;
+use simplelog::*;
 use tokio::codec::{Decoder, Encoder};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -28,6 +30,7 @@ impl Encoder for ClientToServerCodec {
     type Error = io::Error;
 
     fn encode(&mut self, item: AddrRequest, buf: &mut BytesMut) -> io::Result<()> {
+        info!("Encoding {:?}", item);
         buf.put_u32_be(item.num_addrs);
         Ok(())
     }
@@ -48,7 +51,7 @@ impl Decoder for ClientToServerCodec {
             // Need at least four bytes for the length field.
             return Ok(None);
         }
-        let num_addrs = {
+        let payload_len = {
             // Convert from network byte order to host byte order. TODO can't
             // BytesMut take care of this?
             let mut n: u32 = 0;
@@ -58,14 +61,23 @@ impl Decoder for ClientToServerCodec {
             }
             n as usize
         };
+        if payload_len % 6 != 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Invalid payload length"
+            ));
+        }
+        let num_addrs = payload_len / 6;
+        info!("#addrs: {}", num_addrs);
         // Check if we have all addresses in the response which has a 4 byte
-        // length field and `num_addr` times 6 bytes (an address containsa
+        // length field and `num_addrs` times 6 bytes (an address containsa
         // 4 byte IP and a 2 byte port).
-        let msg_len = 4 + (num_addrs * 6);
+        let msg_len = 4 + payload_len;
         if buf.len() < msg_len {
             return Ok(None)
         }
-        // Offset into the buffer.
+        info!("msg len: {}", msg_len);
+        // Start offset into the buffer at 4 to skip initial length field.
         let mut offset = 4;
         let mut addrs = Vec::with_capacity(num_addrs);
         for _ in 0..num_addrs {
@@ -79,7 +91,7 @@ impl Decoder for ClientToServerCodec {
             offset += 4;
             let port = {
                 let mut n: u16 = 0;
-                for i in 0..4 {
+                for i in 0..2 {
                     n <<= 8;
                     n |= buf[offset + i] as u16;
                 }
@@ -106,6 +118,7 @@ impl Encoder for ServerToClientCodec {
     type Error = io::Error;
 
     fn encode(&mut self, item: AddrResponse, buf: &mut BytesMut) -> io::Result<()> {
+        info!("Encoding {:?}", item);
         // TODO: test that item.len() <= 32?
         buf.put_u32_be(item.addrs.len() as u32 * 6);
         for addr in item.addrs {
@@ -119,6 +132,7 @@ impl Encoder for ServerToClientCodec {
             buf.extend_from_slice(&ip.octets());
             buf.put_u16_be(addr.port());
         }
+        info!("Encoded: {:?}", buf);
         Ok(())
     }
 }
