@@ -10,13 +10,13 @@ use tokio::codec::{Decoder, Encoder};
 
 /// Client request containign the number of random IPv4 addresses it wishes to
 /// receive from server.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Request {
     pub num_addrs: u32,
 }
 
 /// Server response containing random IPv4 addresses.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Response {
     pub addrs: Vec<SocketAddr>,
 }
@@ -171,9 +171,83 @@ impl Decoder for ServerToClientCodec {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn it_works() {
-        // TODO: add tests
-        assert_eq!(2 + 2, 4);
+    fn client_to_server_request() {
+        let mut buf = BytesMut::with_capacity(1024);
+        let req = Request { num_addrs: 5 };
+        ClientToServerCodec.encode(req, &mut buf);
+
+        let mut expected_buf = BytesMut::with_capacity(1024);
+        expected_buf.put_u32_be(5);
+        assert_eq!(&buf[..4], &expected_buf[..4]);
+    }
+
+    #[test]
+    fn client_to_server_response() {
+        let msg_len = 4 + 2 * 6;
+
+        let mut buf = BytesMut::with_capacity(1024);
+        buf.put_u32_be(2 * 6);
+        buf.put_u8(0);
+        buf.put_u8(1);
+        buf.put_u8(2);
+        buf.put_u8(3);
+        buf.put_u16_be(16222);
+        buf.put_u8(255);
+        buf.put_u8(1);
+        buf.put_u8(5);
+        buf.put_u8(22);
+        buf.put_u16_be(5888);
+
+        let expected_resp = Response {
+            addrs: vec![
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 1, 2, 3)), 16222),
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(255, 1, 5, 22)), 5888),
+            ],
+        };
+        match ClientToServerCodec.decode(&mut buf) {
+            Ok(Some(resp)) => assert_eq!(resp, expected_resp),
+            _ => assert!(false),
+        };
+    }
+
+    #[test]
+    fn server_to_client_request() {
+        let mut buf = BytesMut::with_capacity(1024);
+        buf.put_slice(&[0, 0, 0, 5]);
+        match ServerToClientCodec.decode(&mut buf) {
+            Ok(Some(req)) => assert_eq!(req, Request { num_addrs: 5 }),
+            _ => assert!(false),
+        }
+    }
+
+    #[test]
+    fn server_to_client_response() {
+        let mut buf = BytesMut::with_capacity(1024);
+        let resp = Response {
+            addrs: vec![
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(0, 1, 2, 3)), 16222),
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(255, 1, 5, 22)), 5888),
+            ],
+        };
+        ServerToClientCodec.encode(resp, &mut buf);
+
+        let msg_len = 4 + 2 * 6;
+
+        let mut expected_buf = BytesMut::with_capacity(1024);
+        expected_buf.put_u32_be(2 * 6);
+        expected_buf.put_u8(0);
+        expected_buf.put_u8(1);
+        expected_buf.put_u8(2);
+        expected_buf.put_u8(3);
+        expected_buf.put_u16_be(16222);
+        expected_buf.put_u8(255);
+        expected_buf.put_u8(1);
+        expected_buf.put_u8(5);
+        expected_buf.put_u8(22);
+        expected_buf.put_u16_be(5888);
+        assert_eq!(&buf[..msg_len], &expected_buf[..msg_len]);
     }
 }
