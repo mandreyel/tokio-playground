@@ -48,7 +48,13 @@ fn main() {
             print!("> ");
             io::stdout().flush().unwrap();
             io::stdin().read_line(&mut buf).unwrap();
-            let num_addrs = buf.trim().parse().expect("TODO fix this");
+            let num_addrs = match buf.trim().parse() {
+                Ok(n) => n,
+                Err(_) => {
+                    println!("Input must be an integer");
+                    continue;
+                },
+            };
             let msg = Request { num_addrs };
             stdin_chan = match stdin_chan.send(msg).wait() {
                 Ok(tx) => tx,
