@@ -38,7 +38,8 @@ fn main() {
             // TODO: stdin error handling?
             println!("> ");
             io::stdin().read_line(&mut buf).unwrap();
-            let num_addrs = buf.parse().expect("TODO fix this");
+            // TODO: 0 exit!
+            let num_addrs = buf.trim().parse().expect("TODO fix this");
             let msg = AddrRequest { num_addrs };
             stdin_chan = match stdin_chan.send(msg).wait() {
                 Ok(tx) => tx,
